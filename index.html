@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Downloader</title>
+    <script>
+        async function downloadVideo(event) {
+            event.preventDefault();
+
+            const urlInput = document.querySelector('#url');
+            const formatIdInput = document.querySelector('#formatId');
+
+            const url = urlInput.value;
+            const formatId = formatIdInput.value;
+
+            // Validate and sanitize the input here!
+
+            const response = await fetch('/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url, formatId }),
+            });
+
+            if (!response.ok) {
+                console.error('An error occurred while downloading the video.');
+            } else {
+                const data = await response.json();
+                console.log(data);
+            }
+
+            urlInput.value = '';
+            formatIdInput.value = '';
+        }
+    </script>
+</head>
+<body>
+    <h1>Video Downloader</h1>
+    <form onsubmit="downloadVideo(event)">
+        <label for="url">Video URL:</label><br>
+        <input type="text" id="url" name="url" required><br>
+        <label for="formatId">Format ID (optional):</label><br>
+        <input type="text" id="formatId" name="formatId"><br>
+        <input type="submit" value="Download">
+    </form>
+</body>
+</html>
