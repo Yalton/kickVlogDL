@@ -58,8 +58,8 @@ const getMasterM3U8Url = async (url: string) => {
     // Start Puppeteer
     const browser = await puppeteer.launch({
         executablePath: '/usr/bin/chromium',
-        headless: true,
-        args: ['--no-sandbox']
+        args: ['--no-sandbox'],
+        headless: "new",
     });
 
     const page = await browser.newPage();
