@@ -2,18 +2,99 @@
 <html>
 
 <head>
-    <title>Video Downloader</title>
+    <title>Kick Vlog Downloader</title>
+    <meta name="description" content="Simple tool to download Kick Vods" />
+    <meta name="keywords" content="Kick, Vlog, Downloader, Video, Download" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://kvlogdl.billbert.co/">
+    <meta property="og:title" content="Kick Vlog Downloader">
+    <meta property="og:description" content="Simple tool to download Kick Vods">
+    <meta property="og:image" content="https://kvlogdl.billbert.co/your-image.jpg">
+    <!-- Replace with the path to your image -->
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://kvlogdl.billbert.co/">
+    <meta property="twitter:title" content="Kick Vlog Downloader">
+    <meta property="twitter:description" content="Simple tool to download Kick Vods">
+    <meta property="twitter:image" content="https://kvlogdl.billbert.co/your-image.jpg">
+    <!-- Replace with the path to your image -->
+
+    <link rel="canonical" href="https://kvlogdl.billbert.co/" />
+
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script>
+        async function getFormats() {
+            const urlInput = document.querySelector('#url');
+            const url = urlInput.value;
+            const getFormatsButton = document.querySelector('#getFormatsButton');
+
+            // Create a loading spinner element
+            const loadingSpinner = document.createElement('div');
+            loadingSpinner.classList.add('spinner'); // Add class for styling (in CSS)
+            loadingSpinner.innerText = ''; // Or add an image/gif
+
+            const form = document.querySelector('form');
+
+            // Replace the Get Formats button with the loading spinner
+            form.replaceChild(loadingSpinner, getFormatsButton);
+
+            const response = await fetch('/formats', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url }),
+            });
+
+            if (!response.ok) {
+                console.error('An error occurred while fetching the formats.');
+            } else {
+                const data = await response.json();
+                const formatSelect = document.querySelector('#formatId');
+                formatSelect.innerHTML = ''; // Remove existing options
+
+                data.formats.forEach(({ id, resolution }) => {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = id + " (" + resolution + ")";
+                    formatSelect.appendChild(option);
+                });
+
+                document.querySelector('.download-button').style.display = 'none'; // Initially hide the download button
+            }
+
+            // Replace the loading spinner with the Get Formats button
+            form.replaceChild(getFormatsButton, loadingSpinner);
+        }
+
+        // Rest of the JavaScript code remains the same
+
+
         async function downloadVideo(event) {
             event.preventDefault();
 
             const urlInput = document.querySelector('#url');
             const formatIdInput = document.querySelector('#formatId');
+            const downloadButton = document.querySelector('.download-button');
 
             const url = urlInput.value;
             const formatId = formatIdInput.value;
 
             // Need to Validate and sanitize the input
+
+            // Create a loading spinner element
+            const loadingSpinner = document.createElement('div');
+            loadingSpinner.classList.add('spinner'); // Add class for styling (in CSS)
+            loadingSpinner.innerText = ''; // Or add an image/gif
+
+            const form = document.querySelector('form');
+
+            // Replace the download button with the loading spinner
+            form.replaceChild(loadingSpinner, downloadButton);
 
             const response = await fetch('/download', {
                 method: 'POST',
@@ -32,27 +113,81 @@
                 // Provide a download link
                 const downloadLink = document.createElement('a');
                 downloadLink.href = data.downloadUrl;
-                downloadLink.innerText = 'Download Video';
-                document.body.appendChild(downloadLink);
-            }
+                downloadLink.innerText = 'View Video';
+                downloadLink.classList.add('button-link');  // Add a class to the download link for styling
 
+                // Replace the loading spinner with the download link
+                form.replaceChild(downloadLink, loadingSpinner);
+
+                // Clear the resolution options
+                formatIdInput.innerHTML = '';
+            }
 
             urlInput.value = '';
             formatIdInput.value = '';
         }
+
+        async function fetchQueueSize() {
+            const response = await fetch('/queue-size');
+            const data = await response.json();
+            return data.size;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const queueSizeElement = document.getElementById('queue-size');
+
+            setInterval(async () => {
+                if (queueSizeElement) {
+                    const size = await fetchQueueSize();
+                    queueSizeElement.textContent = `Queue size: ${size}`;
+                }
+            }, 5000);
+        });
+
+
+        // A function to show the download button when a format is selected
+        function showDownloadButton() {
+            const formatIdInput = document.querySelector('#formatId');
+            if (formatIdInput.value) {  // Only show the button if a format is selected
+                document.querySelector('.download-button').style.display = 'block'; // Show the download button
+            }
+        }
+
     </script>
     <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
-    <h1>Kick Vlog Downloader</h1>
+    <h1>Kick VOD Downloader</h1>
+    <p>All you need to do is enter the URL of the VOD you want to download, choose your preferred resolution, and voilà
+        - a download link will appear. Please note, higher resolutions lead to larger files and may take a bit longer to
+        download.</p>
+    <br>
+    <p>Tool automatically cleans downloads that are older than 8 hours, i.e your vods are not saved on the server
+        longterm. Which for you means two things </p>
+    <br>
+    <p>1. You have assurance that I am not keeping your vods. </p>
+    <p>2. Ensure you collect your vods within 8 hours after queueing the download, otherwise they will be cleansed.</p>
+    </p>
+    <br>
+    <p>As this tool is completely free, downloads are processed on a first-come, first-serve basis. You can check the
+        current size of our wait queue, displayed below.</p>
+    <br>
+    <p id="queue-size">Queue size: Loading...</p>
+    <br>
     <form onsubmit="downloadVideo(event)">
         <label for="url">Stream URL:</label><br>
         <input type="text" id="url" name="url" required><br>
-        <label for="formatId">Format ID (optional):</label><br>
-        <input type="text" id="formatId" name="formatId"><br>
-        <button type="submit" class="download-button">⬇ Download</button>
+        <button type="button" id="getFormatsButton" onclick="getFormats()">Get Formats</button>
+        <br>
+        <br>
+        <label for="formatId">Resolution:</label><br>
+        <select id="formatId" name="formatId" required onchange="showDownloadButton()"></select><br>
+        <button type="submit" class="download-button" style="display: none;">⬇ Download</button>
     </form>
+    <div id="footer">
+        <p>  Created by <a class="inline-link" href="http://bit.ly/m/yalt">Yalt</a>.<img class="footer-logo" src="yaltLogo.png" alt="Logo"></p>
+    </div>
 </body>
 
 </html>
