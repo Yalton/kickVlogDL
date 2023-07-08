@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Video Downloader</title>
     <script>
@@ -12,7 +13,7 @@
             const url = urlInput.value;
             const formatId = formatIdInput.value;
 
-            // Validate and sanitize the input here!
+            // Need to Validate and sanitize the input
 
             const response = await fetch('/download', {
                 method: 'POST',
@@ -27,21 +28,31 @@
             } else {
                 const data = await response.json();
                 console.log(data);
+
+                // Provide a download link
+                const downloadLink = document.createElement('a');
+                downloadLink.href = data.downloadUrl;
+                downloadLink.innerText = 'Download Video';
+                document.body.appendChild(downloadLink);
             }
+
 
             urlInput.value = '';
             formatIdInput.value = '';
         }
     </script>
+    <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
-    <h1>Video Downloader</h1>
+    <h1>Kick Vlog Downloader</h1>
     <form onsubmit="downloadVideo(event)">
-        <label for="url">Video URL:</label><br>
+        <label for="url">Stream URL:</label><br>
         <input type="text" id="url" name="url" required><br>
         <label for="formatId">Format ID (optional):</label><br>
         <input type="text" id="formatId" name="formatId"><br>
-        <input type="submit" value="Download">
+        <button type="submit" class="download-button">⬇ Download</button>
     </form>
 </body>
+
 </html>

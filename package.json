@@ -2,13 +2,17 @@
     "name": "kickVlogDL",
     "version": "1.0.0",
     "description": "A simple project to download vlogs",
-    "main": "index.js",
+    "main": "dist/index.js",
     "scripts": {
-        "build": "tsc"
+        "build": "tsc",
+        "start": "node dist/index.js"
     },
     "dependencies": {
+        "axios": "^1.4.0",
         "body-parser": "^1.20.2",
         "express": "^4.18.2",
+        "puppeteer": "^20.8.0",
+        "puppeteer-core": "^20.8.0",
         "shelljs": "^0.8.5"
     },
     "devDependencies": {
