@@ -60,6 +60,8 @@ download.
 Tool automatically cleans downloads that are older than 8 hours, i.e your vods are not saved on the server
 longterm. Which for you means two things
 
+Offical Hosted Instance is available at [link](https://kvlogdl.billbert.co)
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
