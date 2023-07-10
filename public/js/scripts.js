@@ -42,6 +42,106 @@ async function getFormats() {
     form.replaceChild(getFormatsButton, loadingSpinner);
 }
 
+async function downloadVideo(event) {
+    event.preventDefault();
+
+    const urlInput = document.querySelector('#url');
+    const formatIdInput = document.querySelector('#formatId');
+    const downloadButton = document.querySelector('.download-button');
+
+    const url = urlInput.value;
+    const formatId = formatIdInput.value;
+
+    const loadingSpinner = document.createElement('div');
+    loadingSpinner.classList.add('spinner');
+    loadingSpinner.innerText = '';
+
+    const form = document.querySelector('form');
+
+    form.replaceChild(loadingSpinner, downloadButton);
+
+    const response = await fetch('/download', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url, formatId }),
+    });
+
+    if (!response.ok) {
+        console.error('An error occurred while downloading the video.');
+    } else {
+        const data = await response.json();
+        const downloadId = data.downloadId;
+
+        // Start polling for the download status
+        checkDownloadStatus(downloadId, loadingSpinner, downloadButton, form);
+        //checkDownloadStatus(downloadId, loadingSpinner, downloadButton);
+    }
+
+    urlInput.value = '';
+    formatIdInput.value = '';
+}
+
+async function checkDownloadStatus(downloadId, loadingSpinner, downloadButton, form) {
+    const response = await fetch(`/status/${downloadId}`);
+
+    if (!response.ok) {
+        console.error('An error occurred while checking the download status.');
+    } else {
+        const status = await response.json();
+
+        // Check if the download is completed
+        if (status.status === 'completed') {
+            const downloadLink = document.createElement('a');
+            downloadLink.href = status.downloadUrl;
+            downloadLink.innerText = 'View Video';
+            downloadLink.classList.add('button-link');  // Add a class to the download link for styling
+
+            // Replace the loading spinner with the download link if it is still a child of the form
+            if (form.contains(loadingSpinner)) {
+                form.replaceChild(downloadLink, loadingSpinner);
+            }
+        } else if (status.status === 'error') {
+            console.error(status.message);
+            // Replace the loading spinner with the download button if it is still a child of the form
+            if (form.contains(loadingSpinner)) {
+                form.replaceChild(downloadButton, loadingSpinner);
+            }
+        } else {
+            // If the download is still in progress, poll again in a few seconds
+            setTimeout(() => checkDownloadStatus(downloadId, loadingSpinner, downloadButton, form), 5000);
+        }
+    }
+}
+
+
+async function fetchQueueSize() {
+    const response = await fetch('/queue-size');
+    const data = await response.json();
+    return data.size;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const queueSizeElement = document.getElementById('queue-size');
+
+    setInterval(async () => {
+        if (queueSizeElement) {
+            const size = await fetchQueueSize();
+            queueSizeElement.textContent = `Queue size: ${size}`;
+        }
+    }, 5000);
+});
+
+// A function to show the download button when a format is selected
+function showDownloadButton() {
+    const formatIdInput = document.querySelector('#formatId');
+    if (formatIdInput.value) {  // Only show the button if a format is selected
+        document.querySelector('.download-button').style.display = 'block'; // Show the download button
+    }
+}
+
+
 // async function downloadVideo(event) {
 //     event.preventDefault();
 
@@ -94,94 +194,3 @@ async function getFormats() {
 //     urlInput.value = '';
 //     formatIdInput.value = '';
 // }
-async function downloadVideo(event) {
-    event.preventDefault();
-
-    const urlInput = document.querySelector('#url');
-    const formatIdInput = document.querySelector('#formatId');
-    const downloadButton = document.querySelector('.download-button');
-
-    const url = urlInput.value;
-    const formatId = formatIdInput.value;
-
-    const loadingSpinner = document.createElement('div');
-    loadingSpinner.classList.add('spinner');
-    loadingSpinner.innerText = '';
-
-    const form = document.querySelector('form');
-
-    form.replaceChild(loadingSpinner, downloadButton);
-
-    const response = await fetch('/download', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url, formatId }),
-    });
-
-    if (!response.ok) {
-        console.error('An error occurred while downloading the video.');
-    } else {
-        const data = await response.json();
-        const downloadId = data.downloadId;
-
-        // Start polling for the download status
-        checkDownloadStatus(downloadId, loadingSpinner, downloadButton);
-    }
-
-    urlInput.value = '';
-    formatIdInput.value = '';
-}
-
-async function checkDownloadStatus(downloadId, loadingSpinner, downloadButton) {
-    const response = await fetch(`/status/${downloadId}`);
-
-    if (!response.ok) {
-        console.error('An error occurred while checking the download status.');
-    } else {
-        const status = await response.json();
-
-        // Check if the download is completed
-        if (status.status === 'completed') {
-            const downloadLink = document.createElement('a');
-            downloadLink.href = status.downloadUrl;
-            downloadLink.innerText = 'View Video';
-            downloadLink.classList.add('button-link');  // Add a class to the download link for styling
-
-            // Replace the loading spinner with the download link
-            form.replaceChild(downloadLink, loadingSpinner);
-        } else if (status.status === 'error') {
-            console.error(status.message);
-            form.replaceChild(downloadButton, loadingSpinner);
-        } else {
-            // If the download is still in progress, poll again in a few seconds
-            setTimeout(() => checkDownloadStatus(downloadId, loadingSpinner, downloadButton), 5000);
-        }
-    }
-}
-
-async function fetchQueueSize() {
-    const response = await fetch('/queue-size');
-    const data = await response.json();
-    return data.size;
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const queueSizeElement = document.getElementById('queue-size');
-
-    setInterval(async () => {
-        if (queueSizeElement) {
-            const size = await fetchQueueSize();
-            queueSizeElement.textContent = `Queue size: ${size}`;
-        }
-    }, 5000);
-});
-
-// A function to show the download button when a format is selected
-function showDownloadButton() {
-    const formatIdInput = document.querySelector('#formatId');
-    if (formatIdInput.value) {  // Only show the button if a format is selected
-        document.querySelector('.download-button').style.display = 'block'; // Show the download button
-    }
-}
