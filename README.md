@@ -109,15 +109,20 @@ You will require some local system packages to make the app function properly
     ```
     nvm use 17
     ```
-5. Install NPM packages
+5. Install uuid and save-dev (Behaves weirdly so we do this seperate)
+   ```
+    npm install uuid
+    npm install --save-dev @types/uuid
+   ```
+6. Install NPM packages
    ```sh
    npm update
    ```
-6. Build Typescript backend 
+7. Build Typescript backend 
    ```
    npm run build
    ```
-7. Start the server
+8. Start the server
    ```
     npm start
    ```
