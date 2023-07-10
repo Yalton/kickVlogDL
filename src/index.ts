@@ -4,6 +4,8 @@ import { exec } from 'child_process';
 import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+
 
 const app = express();
 app.use(express.json());
@@ -13,11 +15,23 @@ interface QueueItem {
     req: Request;
     res: Response;
     next: NextFunction;
+    downloadId: string;
 }
 
+interface DownloadStatus {
+    status: 'queued' | 'processing' | 'completed' | 'error';
+    downloadUrl?: string;
+    message?: string;
+}
+
+let isProcessing = false;
 let queue: QueueItem[] = [];
+const downloads: Record<string, DownloadStatus> = {};
+const port = 3000;
 
 setInterval(cleanDownloadsFolder, 1000 * 60 * 60);  // Run once every hour
+
+
 
 
 // The function that deletes files older than 12 hours
@@ -44,7 +58,6 @@ function cleanDownloadsFolder() {
         }
     });
 }
-
 
 const getMasterM3U8Url = async (url: string) => {
     // Extract video id from url
@@ -90,9 +103,6 @@ const getMasterM3U8Url = async (url: string) => {
     return masterUrl;
 };
 
-
-let isProcessing = false;
-
 async function processQueue() {
     if (queue.length === 0 || isProcessing) {
         return;
@@ -108,16 +118,18 @@ async function processQueue() {
         return;
     }
 
+    const downloadId = currentItem.downloadId
     const { req, res } = currentItem;
 
     const { url, formatId } = req.body;
 
-    // Validate and sanitize the URL and formatId here!
-
     let masterUrl = await getMasterM3U8Url(url); // Fetch the master.m3u8 URL
 
     if (!masterUrl) {
-        return res.status(500).json({ message: 'Could not find master.m3u8 URL.' });
+        downloads[downloadId].status = 'error';
+        downloads[downloadId].message = 'Could not find master.m3u8 URL.';
+        isProcessing = false;
+        return;
     }
 
     const filename = `${Date.now()}.mp4`;
@@ -131,14 +143,18 @@ async function processQueue() {
 
     exec(command, (error, stdout, stderr) => {
         if (error) {
+            downloads[downloadId].status = 'error';
+            downloads[downloadId].message = 'An error occurred while executing the command.';
             console.log(`Error: ${error.message}`);
-            res.status(500).json({ message: 'An error occurred while executing the command.' });
         } else if (stderr) {
+            downloads[downloadId].status = 'error';
+            downloads[downloadId].message = 'An error occurred while executing the command.';
             console.log(`Stderr: ${stderr}`);
-            res.status(500).json({ message: 'An error occurred while executing the command.' });
         } else {
             const downloadUrl = `${req.protocol}://${req.get('host')}/downloads/${filename}`;
-            res.json({ message: 'Command executed successfully.', output: stdout, downloadUrl });
+            downloads[downloadId].status = 'completed';
+            downloads[downloadId].downloadUrl = downloadUrl;
+            console.log(`Excecution complete saved to ${filename}`);
         }
 
         isProcessing = false;
@@ -147,8 +163,12 @@ async function processQueue() {
     console.log(`Excecution complete saved to ${filename}`)
 }
 
+
 app.post('/download', async (req, res, next) => {
-    queue.push({ req, res, next });
+    const downloadId = uuidv4();
+    downloads[downloadId] = { status: 'queued' };
+    queue.push({ req, res, next, downloadId });
+    res.json({ downloadId });
     processQueue();
 });
 
@@ -183,15 +203,61 @@ app.get('/queue-size', (req, res) => {
     res.json({ size: queue.length });
 });
 
+app.get('/status/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const downloadStatus = downloads[id];
 
-// app.post('/download', async (req, res) => { // make your route handler async
+    if (downloadStatus) {
+        res.json(downloadStatus);
+    } else {
+        res.status(404).json({ message: 'Download not found.' });
+    }
+});
+
+app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+});
+
+        // exec(command, (error, stdout, stderr) => {
+        //     if (error) {
+        //         console.log(`Error: ${error.message}`);
+        //         res.status(500).json({ message: 'An error occurred while executing the command.' });
+        //     } else if (stderr) {
+        //         console.log(`Stderr: ${stderr}`);
+        //         res.status(500).json({ message: 'An error occurred while executing the command.' });
+        //     } else {
+        //         const downloadUrl = `${req.protocol}://${req.get('host')}/downloads/${filename}`;
+        //         res.json({ message: 'Command executed successfully.', output: stdout, downloadUrl });
+        //     }
+
+
+
+// async function processQueue() {
+//     if (queue.length === 0 || isProcessing) {
+//         return;
+//     }
+
+//     isProcessing = true;
+
+    
+//     const currentItem = queue.shift();
+
+//     // Check if currentItem is not undefined
+//     if (!currentItem) {
+//         isProcessing = false;
+//         return;
+//     }
+
+//     const downloadId = currentItem.downloadId
+//     const { req, res } = currentItem;
+
 //     const { url, formatId } = req.body;
-
-//     // Validate and sanitize the URL and formatId here!
 
 //     let masterUrl = await getMasterM3U8Url(url); // Fetch the master.m3u8 URL
 
 //     if (!masterUrl) {
+//         downloads[downloadId].status = 'error';
+//         downloads[downloadId].message = 'Could not find master.m3u8 URL.';
 //         return res.status(500).json({ message: 'Could not find master.m3u8 URL.' });
 //     }
 
@@ -203,25 +269,29 @@ app.get('/queue-size', (req, res) => {
 //     command += `-o ./public/downloads/${filename} --external-downloader aria2c --external-downloader-args "aria2c:-x 16 -k 1M" ${masterUrl}`;
 
 //     console.log(`Executing ${command}`)
+
 //     exec(command, (error, stdout, stderr) => {
 //         if (error) {
+//             downloads[downloadId].status = 'error';
+//             downloads[downloadId].message = 'An error occurred while executing the command.';
 //             console.log(`Error: ${error.message}`);
-//             return res.status(500).json({ message: 'An error occurred while executing the command.' });
-//         }
-//         if (stderr) {
+//             res.status(500).json({ message: 'An error occurred while executing the command.' });
+//         } else if (stderr) {
+//             downloads[downloadId].status = 'error';
+//             downloads[downloadId].message = 'An error occurred while executing the command.';
 //             console.log(`Stderr: ${stderr}`);
-//             return res.status(500).json({ message: 'An error occurred while executing the command.' });
+//             res.status(500).json({ message: 'An error occurred while executing the command.' });
+//         } else {
+//             const downloadUrl = `${req.protocol}://${req.get('host')}/downloads/${filename}`;
+//             downloads[downloadId].status = 'completed';
+//             downloads[downloadId].downloadUrl = downloadUrl;
+//             res.json({ message: 'Command executed successfully.', output: stdout, downloadUrl });
 //         }
 
-//         const downloadUrl = `${req.protocol}://${req.get('host')}/downloads/${filename}`;
-//         res.json({ message: 'Command executed successfully.', output: stdout, downloadUrl });
+
+
+//         isProcessing = false;
+//         processQueue();
 //     });
-// });
-
-
-const port = 3000;
-
-app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
-});
-
+//     console.log(`Excecution complete saved to ${filename}`)
+// }
